@@ -139,6 +139,7 @@ https://gudian-shexue-kb-api.crescent-kb.workers.dev
 
 完整规则见：
 
+- `references/knowledge-base-map.md`
 - `references/kb-protocol.md`
 - `references/citation-and-output.md`
 - `references/safety-boundary.md`
@@ -176,3 +177,23 @@ Every `scripts/query-kb.mjs` run performs two advisory checks before querying:
 - Remote KB update: fetches the Cloudflare API `/health` endpoint and compares the current `build` value with the cached previous value.
 
 These checks write notices to stderr only. They must not change the answer JSON, must not block normal retrieval, and must not be treated as knowledge-base evidence. Use `--no-update-check` or `GUDIAN_SHEXUE_SKIP_UPDATE_CHECK=1` when a silent deterministic run is needed.
+
+## Route Search
+
+Use route search when the question may require more than one knowledge-base category, especially equipment, rules, beginner guidance, cultural explanation, disputes, or ancient-source questions.
+
+```powershell
+node scripts/query-kb.mjs --route --query "现在选弓应该按什么标准" --answer-top-k 2 --per-category-top-k 3
+```
+
+The Cloudflare API endpoint is `/route-search`.
+
+Returned fields:
+
+- `routes`: the semantic routing decision, including category, role, and reason.
+- `answer_units`: optional natural-language scaffold from `07_问答解释`.
+- `groups`: evidence grouped by routed category.
+- `missing_categories`: categories that should have been checked but currently returned no evidence.
+- `guidance`: how the agent should combine the grouped evidence.
+
+Do not use one category to fake evidence for another category. If `route-search` says `器材` or `数据` is missing, say that the current knowledge base lacks that category of evidence.

@@ -43,8 +43,17 @@ if (args.evidenceTopK || args["evidence-top-k"]) {
   const evidenceTopK = Number.parseInt(args.evidenceTopK || args["evidence-top-k"], 10);
   if (Number.isFinite(evidenceTopK)) body.evidence_top_k = evidenceTopK;
 }
+if (args.perCategoryTopK || args["per-category-top-k"]) {
+  const perCategoryTopK = Number.parseInt(args.perCategoryTopK || args["per-category-top-k"], 10);
+  if (Number.isFinite(perCategoryTopK)) body.per_category_top_k = perCategoryTopK;
+}
 
-const endpoint = `${apiUrl}/${args.rag === "true" ? "rag-search" : "search"}`;
+const endpointName = args.route === "true"
+  ? "route-search"
+  : args.rag === "true"
+    ? "rag-search"
+    : "search";
+const endpoint = `${apiUrl}/${endpointName}`;
 
 try {
   await checkForUpdates(apiUrl, args);

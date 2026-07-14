@@ -43,6 +43,8 @@ $env:GUDIAN_SHEXUE_KB_API_URL = "https://your-worker.workers.dev"
 
 ## 回答原则
 
+- 先按语义路由到知识库分类：`01_考据`、`02_数据`、`03_文化`、`04_新手`、`05_社群`、`06_器材`。
+- `07_问答解释` 只提供自然回答骨架，最终事实仍要回到事实层 KB。
 - `/rag-search` 是默认问答召回：`answer_units` 提供自然回答骨架，`evidence` 提供事实校验和引用。
 - `/search` 是严谨证据召回，不是最终答案。
 - 普通问题用自然中文回答，引用放末尾。
@@ -62,3 +64,19 @@ Notices are printed to stderr so JSON output remains parseable. Disable with:
 ```powershell
 node scripts/query-kb.mjs --rag --query "古典射学是什么" --no-update-check
 ```
+
+## Route search
+
+跨库问题用 `--route`：
+
+```powershell
+node scripts/query-kb.mjs --route --query "现在选弓应该按什么标准" --answer-top-k 2 --per-category-top-k 3
+```
+
+返回内容会按知识库分类分组：
+
+- `routes`：为什么查这些库。
+- `groups`：每个库查到的证据。
+- `missing_categories`：应该查但当前没材料的库。
+
+如果某个库缺材料，不要用别的库硬凑结论。
