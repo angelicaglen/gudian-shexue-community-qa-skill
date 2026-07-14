@@ -1,8 +1,8 @@
 {
   "name": "古典射学社群问答skill",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "updated_at": "2026-07-14",
   "repository": "https://github.com/angelicaglen/gudian-shexue-community-qa-skill",
   "kb_api": "https://gudian-shexue-kb-api.crescent-kb.workers.dev",
-  "release_notes": "Add route-search support for semantic knowledge-base category routing and grouped evidence."
+  "release_notes": "Add opt-in auto-update for local skill files before querying."
 }

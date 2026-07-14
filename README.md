@@ -65,6 +65,20 @@ Notices are printed to stderr so JSON output remains parseable. Disable with:
 node scripts/query-kb.mjs --rag --query "古典射学是什么" --no-update-check
 ```
 
+Auto-update local skill files before querying:
+
+```powershell
+node scripts/query-kb.mjs --rag --query "古典射学是什么" --auto-update
+```
+
+Or enable it for the current shell:
+
+```powershell
+$env:GUDIAN_SHEXUE_AUTO_UPDATE = "1"
+```
+
+Auto-update only pulls the public skill repository to replace local skill files. It does not update Cloudflare, does not write the knowledge base, and does not deploy the Worker.
+
 ## Route search
 
 跨库问题用 `--route`：
