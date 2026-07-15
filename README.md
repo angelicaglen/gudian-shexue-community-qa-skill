@@ -37,7 +37,7 @@ node scripts/query-kb.mjs --rag --query "为什么联盟不鼓励把活动办成
 node "D:/claude-code/云松/古典射学联盟/skills/古典射学社群问答skill/scripts/query-kb.mjs" --rag --query "现在选弓应该按什么标准" --answer-top-k 3 --evidence-top-k 5
 ```
 
-严谨引用或审计时使用普通检索：
+严谨引用或只看原始章程时使用普通检索：
 
 ```powershell
 node scripts/query-kb.mjs --query "远射记录会箭重 FOC 箭长规则是什么" --top-k 5
@@ -72,7 +72,7 @@ node scripts/smoke-test.mjs
 - `--rag` 默认调用 `/route-search`：`answer_units` 提供自然回答骨架，`evidence` 提供事实校验和引用。
 - `/search` 是严谨证据召回，不是最终答案。
 - 普通问题用自然中文回答，引用放末尾；先回答用户，不要开头就写缺了哪些库。
-- 不要把 API JSON 翻译成检索报告。除非用户明确要求审计，否则不要输出 `routes`、`groups`、`missing_categories`、`当前 evidence` 这类内部过程。
+- 不要把 API JSON 翻译成检索报告。普通用户即使要求“给依据”，也只应看到自然语言结论和 citation，不应看到 `routes`、`groups`、`missing_categories`、`当前 evidence` 这类内部过程。
 - 先判断用户是在自己理解问题，还是要拿去回复社群。用户只是描述“群里吵/有人说/争议”时，默认仍是普通问答；只有明确说“帮我回群里/写一段回复/给个对外口径”时，才输出可复制的社群回复。不确定时先问用户要哪一种。
 - `answer_units` 只吸收意思，不原样照搬“推荐回答/可展开解释”等内部措辞。
 - `missing_categories` 是内部边界提示。只有缺失影响核心判断时，才显式说明知识库不足。
@@ -100,6 +100,8 @@ Reasoning is layered:
 - Scenario playbooks choose whether the answer should be ordinary Q&A, community reply, public wording, or audit.
 
 If the user describes a dispute but does not explicitly ask for copyable community wording, answer as ordinary Q&A first. Ask before turning it into a group reply.
+
+Internal retrieval/debug details are not a user-facing mode. When users ask for sources, provide normal citations, not API fields such as `routes`, `groups`, `evidence`, or `missing_categories`. Only maintainers who explicitly ask to debug retrieval should see those internals.
 
 ## Update checks
 
