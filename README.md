@@ -101,7 +101,7 @@ Reasoning is layered:
 
 If the user describes a dispute but does not explicitly ask for copyable community wording, answer as ordinary Q&A first. Ask before turning it into a group reply.
 
-Internal retrieval/debug details are not a user-facing mode. When users ask for sources, provide normal citations, not API fields such as `routes`, `groups`, `evidence`, or `missing_categories`. Only maintainers who explicitly ask to debug retrieval should see those internals.
+Internal retrieval/debug details are not a capability of this Q&A skill. When users ask for sources, provide normal citations, not API fields such as `routes`, `groups`, `evidence`, or `missing_categories`. If a maintainer explicitly asks to debug retrieval, use the separate `古典射学知识库调试skill`; do not expose those internals from this skill.
 
 ## Update checks
 

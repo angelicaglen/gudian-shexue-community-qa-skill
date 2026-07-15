@@ -1,11 +1,11 @@
 {
   "name": "古典射学社群问答skill",
-  "version": "0.1.10",
+  "version": "0.1.11",
   "updated_at": "2026-07-15",
   "repository": "https://github.com/angelicaglen/gudian-shexue-community-qa-skill",
   "domestic_package_url": "https://gudian-shexue-kb-d7efar4fd2fcd64.service.tcloudbase.com/api/skill-package.zip",
   "domestic_version_url": "https://gudian-shexue-kb-d7efar4fd2fcd64.service.tcloudbase.com/api/skill-version.json",
   "kb_api": "https://gudian-shexue-kb-d7efar4fd2fcd64.service.tcloudbase.com/api",
   "kb_backup_api": "https://gudian-shexue-kb-api.crescent-kb.workers.dev",
-  "release_notes": "Hide internal audit/debug layers from normal users; source requests now produce natural citations without exposing API or reasoning internals."
+  "release_notes": "Remove debug capability from the community Q&A skill; internal retrieval debugging must use a separate KB debug skill."
 }
