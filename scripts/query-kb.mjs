@@ -5,8 +5,10 @@ import {
   existsSync,
   mkdirSync,
   mkdtempSync,
+  readdirSync,
   readFileSync,
   rmSync,
+  statSync,
   writeFileSync
 } from "node:fs";
 import { tmpdir } from "node:os";
@@ -117,7 +119,7 @@ async function checkSkillVersion(args) {
   const localVersion = readLocalVersion();
   if (!localVersion || !versionUrl) return;
 
-  const remoteVersion = await fetchJsonWithTimeout(versionUrl, 1000);
+  const remoteVersion = await fetchJsonWithTimeout(versionUrl, 5000);
   if (!remoteVersion?.version) return;
 
   if (isRemoteNewer(remoteVersion.version, localVersion.version)) {
@@ -141,15 +143,18 @@ function shouldAutoUpdate(args) {
 }
 
 function autoUpdateSkill(remoteVersion) {
-  if (!remoteVersion.repository) {
-    warn("[update] Auto-update skipped: remote skill-version.json does not provide a repository URL.");
-    return;
-  }
+  const packageUrl = remoteVersion.domestic_package_url || remoteVersion.package_url || remoteVersion.zip_url;
+  if (packageUrl && autoUpdateSkillFromPackage(packageUrl, remoteVersion)) return;
 
   const tempRoot = mkdtempSync(path.join(tmpdir(), "gudian-shexue-skill-update-"));
   const cloneDir = path.join(tempRoot, "repo");
 
   try {
+    if (!remoteVersion.repository) {
+      warn("[update] Auto-update skipped: remote skill-version.json does not provide a repository URL.");
+      return;
+    }
+
     warn(`[update] Auto-updating skill from ${remoteVersion.repository} ...`);
     execFileSync("git", ["clone", "--depth", "1", remoteVersion.repository, cloneDir], {
       encoding: "utf8",
@@ -172,6 +177,100 @@ function autoUpdateSkill(remoteVersion) {
   } finally {
     rmSync(tempRoot, { recursive: true, force: true });
   }
+}
+
+function autoUpdateSkillFromPackage(packageUrl, remoteVersion) {
+  const tempRoot = mkdtempSync(path.join(tmpdir(), "gudian-shexue-skill-package-"));
+  const zipPath = path.join(tempRoot, "skill.zip");
+  const extractDir = path.join(tempRoot, "extract");
+
+  try {
+    warn(`[update] Auto-updating skill from domestic package ${packageUrl} ...`);
+    downloadFile(packageUrl, zipPath, 15000);
+    extractZip(zipPath, extractDir);
+    const packageRoot = findPackageRoot(extractDir);
+
+    cpSync(packageRoot, SKILL_DIR, {
+      recursive: true,
+      force: true,
+      filter: (source) => {
+        const name = path.basename(source);
+        return ![".git", ".cache", "node_modules"].includes(name);
+      }
+    });
+
+    warn(`[update] Skill auto-update finished from domestic package. Installed version: ${remoteVersion.version}. Continuing current query.`);
+    return true;
+  } catch (error) {
+    warn(`[update] Domestic package auto-update failed; trying repository fallback if available. ${formatError(error)}`);
+    return false;
+  } finally {
+    rmSync(tempRoot, { recursive: true, force: true });
+  }
+}
+
+function downloadFile(url, outputPath, timeoutMs) {
+  try {
+    curlDownload(url, outputPath, false, timeoutMs);
+  } catch {
+    curlDownload(url, outputPath, true, timeoutMs);
+  }
+}
+
+function curlDownload(url, outputPath, noProxy, timeoutMs) {
+  const curl = process.platform === "win32" ? "curl.exe" : "curl";
+  const curlArgs = [
+    "-L",
+    "-f",
+    "-sS",
+    "--max-time", String(Math.max(1, Math.ceil(timeoutMs / 1000))),
+    "-o", outputPath,
+    url
+  ];
+
+  if (noProxy) curlArgs.unshift("--noproxy", "*");
+
+  execFileSync(curl, curlArgs, {
+    encoding: "utf8",
+    maxBuffer: 10 * 1024 * 1024
+  });
+}
+
+function extractZip(zipPath, destinationPath) {
+  mkdirSync(destinationPath, { recursive: true });
+
+  if (process.platform === "win32") {
+    execFileSync("powershell", [
+      "-NoProfile",
+      "-Command",
+      `Expand-Archive -LiteralPath ${psQuote(zipPath)} -DestinationPath ${psQuote(destinationPath)} -Force`
+    ], {
+      encoding: "utf8",
+      maxBuffer: 10 * 1024 * 1024
+    });
+    return;
+  }
+
+  execFileSync("unzip", ["-q", zipPath, "-d", destinationPath], {
+    encoding: "utf8",
+    maxBuffer: 10 * 1024 * 1024
+  });
+}
+
+function findPackageRoot(extractDir) {
+  if (existsSync(path.join(extractDir, "SKILL.md"))) return extractDir;
+
+  const children = readdirSync(extractDir)
+    .map((name) => path.join(extractDir, name))
+    .filter((item) => statSync(item).isDirectory());
+
+  if (children.length === 1 && existsSync(path.join(children[0], "SKILL.md"))) return children[0];
+
+  throw new Error("Downloaded package does not look like a skill directory: missing SKILL.md.");
+}
+
+function psQuote(value) {
+  return `'${String(value).replace(/'/g, "''")}'`;
 }
 
 async function checkKbHealth(apiUrl) {
@@ -338,7 +437,7 @@ function parseVersion(value) {
 function readJsonIfExists(filePath) {
   try {
     if (!existsSync(filePath)) return null;
-    return JSON.parse(readFileSync(filePath, "utf8"));
+    return JSON.parse(readFileSync(filePath, "utf8").replace(/^\uFEFF/, ""));
   } catch {
     return null;
   }

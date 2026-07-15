@@ -202,7 +202,7 @@ Every `scripts/query-kb.mjs` run performs two advisory checks before querying:
 
 These checks write notices to stderr only. They must not change the answer JSON, must not block normal retrieval, and must not be treated as knowledge-base evidence. Use `--no-update-check` or `GUDIAN_SHEXUE_SKIP_UPDATE_CHECK=1` when a silent deterministic run is needed.
 
-Auto-update is opt-in. Use `--auto-update` or `GUDIAN_SHEXUE_AUTO_UPDATE=1` when the local skill should update itself from the public GitHub repository before querying. Auto-update only replaces local skill files; it never writes to CloudBase/Cloudflare, never changes the knowledge base, and never deploys the API. Use `--no-auto-update` or `GUDIAN_SHEXUE_AUTO_UPDATE=0` to force notification-only behavior.
+Auto-update is opt-in. Use `--auto-update` or `GUDIAN_SHEXUE_AUTO_UPDATE=1` when the local skill should update itself before querying. The updater prefers the Tencent CloudBase domestic package URL from `skill-version.json`, then falls back to the public GitHub repository if no package is available. Auto-update only replaces local skill files; it never writes to CloudBase/Cloudflare, never changes the knowledge base, and never deploys the API. Use `--no-auto-update` or `GUDIAN_SHEXUE_AUTO_UPDATE=0` to force notification-only behavior.
 
 ## Route Search
 

@@ -82,7 +82,7 @@ node scripts/smoke-test.mjs
 
 `scripts/query-kb.mjs` checks for updates on every run:
 
-- Skill version: compares local `skill-version.json` with the Tencent CloudBase version endpoint. GitHub remains the manual repository.
+- Skill version: compares local `skill-version.json` with the Tencent CloudBase version endpoint. The version JSON can also provide a domestic package URL for auto-update; GitHub remains the fallback/manual repository.
 - KB build: compares the default API `/health` `build` value with the cached previous value.
 
 Notices are printed to stderr so JSON output remains parseable. Domestic default update endpoint:
@@ -109,7 +109,7 @@ Or enable it for the current shell:
 $env:GUDIAN_SHEXUE_AUTO_UPDATE = "1"
 ```
 
-Auto-update only pulls the public skill repository to replace local skill files. It does not update Cloudflare, does not write the knowledge base, and does not deploy the Worker.
+Auto-update prefers the Tencent CloudBase domestic package URL and falls back to the public GitHub repository. It only replaces local skill files. It does not update CloudBase/Cloudflare, does not write the knowledge base, and does not deploy the API.
 
 ## Route search
 
