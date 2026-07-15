@@ -80,6 +80,18 @@ node scripts/smoke-test.mjs
 - API 失败时说“当前无法读取远程知识库”。
 - API 成功但无结果时，才说“当前知识库没有足够材料支持这个判断”。
 
+## Reasoning references
+
+The skill has read-only reasoning references:
+
+```text
+references/first-principles.md
+references/reasoning-framework.md
+references/scenario-playbooks.md
+```
+
+Use them only for internal judgment on rule boundaries, tradition, community governance, dispute handling, and deep explanation. They do not replace evidence from the KB API and must not be edited by this Q&A skill.
+
 ## Update checks
 
 `scripts/query-kb.mjs` checks for updates on every run:

@@ -33,6 +33,7 @@ https://gudian-shexue-kb-api.crescent-kb.workers.dev
 - 普通问答默认“回答优先，证据托底”：先解决用户问题，再用 citation 收束。
 - 正式规则、争议回应、对外发布、可被转述的判断，必须给出可复核引用。
 - 用户临时粘贴的材料只能作为“待核素材”，不能自动视为已入库知识库事实。
+- `references/first-principles.md`、`references/reasoning-framework.md`、`references/scenario-playbooks.md` 是只读 reasoning 发布版。它们用于内部判断，不替代知识库证据，也不得由本 skill 自动修改。
 
 ## 执行流程
 
@@ -59,6 +60,26 @@ https://gudian-shexue-kb-api.crescent-kb.workers.dev
 
 8. 如果 API 无法访问，说“当前无法读取远程知识库”，不要说“知识库没有材料”。
 9. 如果 API 成功但无结果，才说“当前知识库没有足够材料支持这个判断”。
+
+## Reasoning 层
+
+回答涉及规则边界、定义权、传统边界、社群治理、讨论质量、文化解释或哲学分析时，先只读参考：
+
+- `references/first-principles.md`
+- `references/reasoning-framework.md`
+- `references/scenario-playbooks.md`
+
+使用顺序：
+
+```text
+第一性原理：决定站在哪里
+知识库证据：决定能说到哪里
+分析工具：帮助看清结构
+用户意图：决定是普通问答、社群回复、审计还是深度解释
+输出规范：决定怎么说成人话
+```
+
+默认不要哲学化。只有用户问“为什么/背后结构/社群治理/哲学分析/争议本质”等深度问题时，才启用深度解释模式。即便启用，也不要默认点名哲学理论，除非用户明确要求。
 
 ## 回答风格
 
@@ -182,6 +203,9 @@ https://gudian-shexue-kb-api.crescent-kb.workers.dev
 - `references/generation-policy.md`
 - `references/citation-and-output.md`
 - `references/safety-boundary.md`
+- `references/first-principles.md`
+- `references/reasoning-framework.md`
+- `references/scenario-playbooks.md`
 
 关键禁令：
 
