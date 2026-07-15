@@ -92,6 +92,15 @@ references/scenario-playbooks.md
 
 Use them only for internal judgment on rule boundaries, tradition, community governance, dispute handling, and deep explanation. They do not replace evidence from the KB API and must not be edited by this Q&A skill.
 
+Reasoning is layered:
+
+- First principles decide the judgment anchor and rule boundary.
+- KB evidence decides what can be stated as fact.
+- Analysis tools explain the structure only after evidence is checked.
+- Scenario playbooks choose whether the answer should be ordinary Q&A, community reply, public wording, or audit.
+
+If the user describes a dispute but does not explicitly ask for copyable community wording, answer as ordinary Q&A first. Ask before turning it into a group reply.
+
 ## Update checks
 
 `scripts/query-kb.mjs` checks for updates on every run:
