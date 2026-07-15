@@ -1,11 +1,11 @@
 {
   "name": "古典射学社群问答skill",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "updated_at": "2026-07-15",
   "repository": "https://github.com/angelicaglen/gudian-shexue-community-qa-skill",
   "domestic_package_url": "https://gudian-shexue-kb-d7efar4fd2fcd64.service.tcloudbase.com/api/skill-package.zip",
   "domestic_version_url": "https://gudian-shexue-kb-d7efar4fd2fcd64.service.tcloudbase.com/api/skill-version.json",
   "kb_api": "https://gudian-shexue-kb-d7efar4fd2fcd64.service.tcloudbase.com/api",
   "kb_backup_api": "https://gudian-shexue-kb-api.crescent-kb.workers.dev",
-  "release_notes": "Strengthen two-stage generation: API JSON is internal evidence, not the user-facing answer."
+  "release_notes": "Add intent check for user dialogue versus community reply; ask before drafting social replies when ambiguous."
 }
