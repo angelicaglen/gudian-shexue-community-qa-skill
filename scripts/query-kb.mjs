@@ -13,7 +13,8 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-const DEFAULT_API_URL = "https://gudian-shexue-kb-api.crescent-kb.workers.dev";
+const DEFAULT_API_URL = "https://gudian-shexue-kb-d7efar4fd2fcd64.service.tcloudbase.com/api";
+const DEFAULT_FALLBACK_API_URL = "https://gudian-shexue-kb-api.crescent-kb.workers.dev";
 const DEFAULT_VERSION_URL = "https://raw.githubusercontent.com/angelicaglen/gudian-shexue-community-qa-skill/main/skill-version.json";
 const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
 const SKILL_DIR = path.resolve(SCRIPT_DIR, "..");
@@ -28,7 +29,8 @@ if (!query) {
   fail("Missing --query. Example: node scripts/query-kb.mjs --query \"箭重规则\" --category 社群 --top-k 5", 2);
 }
 
-const apiUrl = stripTrailingSlash(args.apiUrl || args["api-url"] || process.env.GUDIAN_SHEXUE_KB_API_URL || DEFAULT_API_URL);
+const apiUrls = resolveApiUrls(args);
+const timeoutMs = Number.parseInt(args.timeoutMs || args["timeout-ms"] || process.env.GUDIAN_SHEXUE_KB_TIMEOUT_MS || "8000", 10);
 const topK = Number.parseInt(args.topK || args["top-k"] || "5", 10);
 const body = {
   query,
@@ -54,30 +56,46 @@ const endpointName = args.route === "true"
   : args.rag === "true"
     ? "rag-search"
     : "search";
-const endpoint = `${apiUrl}/${endpointName}`;
 
-try {
-  await checkForUpdates(apiUrl, args);
-  const data = await queryWithFetch(endpoint, body);
-  printJson(data);
-} catch (fetchError) {
+const errors = [];
+let success = false;
+for (const apiUrl of apiUrls) {
+  const endpoint = `${apiUrl}/${endpointName}`;
   try {
-    const data = queryWithCurl(endpoint, body, false);
+    await checkForUpdates(apiUrl, args);
+    const data = await queryWithFetch(endpoint, body, timeoutMs);
     printJson(data);
-  } catch (curlError) {
+    success = true;
+    break;
+  } catch (fetchError) {
     try {
-      const data = queryWithCurl(endpoint, body, true);
+      const data = queryWithCurl(endpoint, body, false, timeoutMs);
       printJson(data);
-    } catch (directCurlError) {
-      fail([
-        "Remote KB API request failed.",
-        `Endpoint: ${endpoint}`,
-        `Fetch error: ${formatError(fetchError)}`,
-        `Curl error: ${formatError(curlError)}`,
-        `Curl no-proxy error: ${formatError(directCurlError)}`
-      ].join("\n"), 1);
+      success = true;
+      break;
+    } catch (curlError) {
+      try {
+        const data = queryWithCurl(endpoint, body, true, timeoutMs);
+        printJson(data);
+        success = true;
+        break;
+      } catch (directCurlError) {
+        errors.push([
+          `Endpoint: ${endpoint}`,
+          `Fetch error: ${formatError(fetchError)}`,
+          `Curl error: ${formatError(curlError)}`,
+          `Curl no-proxy error: ${formatError(directCurlError)}`
+        ].join("\n"));
+      }
     }
   }
+}
+
+if (!success) {
+  fail([
+    "Remote KB API request failed for all configured endpoints.",
+    ...errors
+  ].join("\n\n"), 1);
 }
 
 async function checkForUpdates(apiUrl, args) {
@@ -202,13 +220,14 @@ function queryJsonWithCurlGet(url, noProxy, timeoutMs) {
   return JSON.parse(output);
 }
 
-async function queryWithFetch(endpoint, body) {
+async function queryWithFetch(endpoint, body, timeoutMs) {
   const response = await fetch(endpoint, {
     method: "POST",
     headers: {
       "content-type": "application/json; charset=utf-8"
     },
-    body: JSON.stringify(body)
+    body: JSON.stringify(body),
+    signal: AbortSignal.timeout(Math.max(1000, timeoutMs))
   });
 
   const text = await response.text();
@@ -219,7 +238,7 @@ async function queryWithFetch(endpoint, body) {
   return JSON.parse(text);
 }
 
-function queryWithCurl(endpoint, body, noProxy) {
+function queryWithCurl(endpoint, body, noProxy, timeoutMs) {
   const dir = mkdtempSync(path.join(tmpdir(), "gudian-shexue-kb-"));
   const bodyPath = path.join(dir, "body.json");
 
@@ -228,6 +247,7 @@ function queryWithCurl(endpoint, body, noProxy) {
     const curl = process.platform === "win32" ? "curl.exe" : "curl";
     const curlArgs = [
       "-sS",
+      "--max-time", String(Math.max(1, Math.ceil(timeoutMs / 1000))),
       "-X", "POST",
       endpoint,
       "-H", "Content-Type: application/json; charset=utf-8",
@@ -266,6 +286,24 @@ function parseArgs(argv) {
 
 function stripTrailingSlash(value) {
   return String(value).replace(/\/+$/, "");
+}
+
+function resolveApiUrls(args) {
+  const explicit = args.apiUrl || args["api-url"] || process.env.GUDIAN_SHEXUE_KB_API_URL;
+  if (explicit) return splitApiUrls(explicit);
+
+  const configured = args.apiUrls || args["api-urls"] || process.env.GUDIAN_SHEXUE_KB_API_URLS;
+  if (configured) return splitApiUrls(configured);
+
+  return [DEFAULT_API_URL, DEFAULT_FALLBACK_API_URL].map(stripTrailingSlash);
+}
+
+function splitApiUrls(value) {
+  return String(value)
+    .split(/[,\s]+/)
+    .map((item) => item.trim())
+    .filter(Boolean)
+    .map(stripTrailingSlash);
 }
 
 function readLocalVersion() {
