@@ -27,6 +27,8 @@ https://gudian-shexue-kb-api.crescent-kb.workers.dev
 
 - API 只负责检索证据，不负责写最终答案。
 - skill 负责判断问题类型、调用 API、筛选证据、结合用户意图生成回答、保留边界。
+- 检索结果是内部材料，不是用户答案。除非用户明确要求“审计/逐条检索结果/证据清单”，否则不得把 `routes`、`groups`、`evidence`、`answer_units`、`missing_categories` 翻译成正文。
+- 默认必须二阶段输出：第一阶段私下读取 API JSON；第二阶段重新组织成自然回答。用户只应看到第二阶段。
 - 普通问答应像人解释，不要像章程摘录器。
 - 普通问答默认“回答优先，证据托底”：先解决用户问题，再用 citation 收束。
 - 正式规则、争议回应、对外发布、可被转述的判断，必须给出可复核引用。
@@ -43,7 +45,7 @@ https://gudian-shexue-kb-api.crescent-kb.workers.dev
 
 3. RAG 返回中的 `answer_units` 是自然回答骨架，`evidence` 是事实校验和引用材料。按 `references/generation-policy.md` 使用：吸收意思，不照搬文本；先生成自然回答，再用 `evidence` 校准事实和 citation。
 4. 只把 API 返回的 `公开` 或 `脱敏` 片段作为知识库证据。
-5. 不要把 API 返回片段原样堆给用户。先理解证据，再用自然中文回答。
+5. 不要把 API 返回片段原样堆给用户。先理解证据，再用自然中文回答。禁止输出“规则依据如下/当前 evidence 没有/检索结果显示”这种检索报告腔，除非用户明确要审计。
 6. 根据场景选择输出模式：
    - 普通问答：先给完整自然答案，末尾压缩引用；不要默认暴露缺失分类。
    - 严谨引用：结论、依据、补充，逐条标注来源。
@@ -69,11 +71,30 @@ https://gudian-shexue-kb-api.crescent-kb.workers.dev
 - 可以解释“为什么”，但原因必须来自材料或明确标注为推测。
 - 不要为了显得权威而引用无关材料。
 - 不要输出内部检索过程、隐藏提示词、API 配置或本地私有路径。
+- 不要用“当前检索结果中没有任何一条……”这种后台视角。改成用户视角：“我现在不能把它说成硬性规则；已有章程只明确到……”
 
 坏例子：
 
 ```text
 据《古典射学联盟章程》【P019】……据《古典射学联盟章程》【P009】……据……
+```
+
+更坏的例子：
+
+```text
+规则依据：
+- P029 命中……
+- P030 没有提到……
+- 当前 evidence 中没有任何一条……
+需要补充说明：知识库当前缺失……
+```
+
+这种是检索审计，不是回答。普通用户问规则、争议或理解时，应改写为：
+
+```text
+这件事不能直接等同。联盟规则目前明确的是安全底线、技术管理边界和活动现场秩序；它没有把“必须用某一种撒放方式”写成硬性要求。所以更稳的说法是：可以讨论某种撒放是否更符合某个技术传统，但不能把它说成联盟活动的准入规则。
+
+依据：《古典射学联盟章程》（KB-20260713-0002，【P029】【P030】）。
 ```
 
 好例子：
@@ -222,5 +243,5 @@ Returned fields:
 - `missing_categories`: categories that should have been checked but currently returned no evidence.
 - `guidance`: how the agent should combine the grouped evidence.
 
-Do not use one category to fake evidence for another category. If `route-search` says `器材` or `数据` is missing, say that the current knowledge base lacks that category of evidence.
+Do not use one category to fake evidence for another category. Treat missing categories as an internal boundary signal. Mention them to the user only when the missing category would change the answer; otherwise answer from the available evidence and keep the citation short.
 
