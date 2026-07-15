@@ -54,7 +54,7 @@ if (args.perCategoryTopK || args["per-category-top-k"]) {
 const endpointName = args.route === "true"
   ? "route-search"
   : args.rag === "true"
-    ? "rag-search"
+    ? "route-search"
     : "search";
 
 const errors = [];
@@ -64,18 +64,21 @@ for (const apiUrl of apiUrls) {
   try {
     await checkForUpdates(apiUrl, args);
     const data = await queryWithFetch(endpoint, body, timeoutMs);
+    validateApiData(data, endpoint);
     printJson(data);
     success = true;
     break;
   } catch (fetchError) {
     try {
       const data = queryWithCurl(endpoint, body, false, timeoutMs);
+      validateApiData(data, endpoint);
       printJson(data);
       success = true;
       break;
     } catch (curlError) {
       try {
         const data = queryWithCurl(endpoint, body, true, timeoutMs);
+        validateApiData(data, endpoint);
         printJson(data);
         success = true;
         break;
@@ -188,7 +191,8 @@ async function checkKbHealth(apiUrl) {
   writeJsonBestEffort(KB_HEALTH_CACHE_PATH, {
     build: health.build,
     documents: health.documents,
-    paragraphs: health.paragraphs,`r`n    chunks: health.chunks,
+    paragraphs: health.paragraphs,
+    chunks: health.chunks,
     answer_units: health.answer_units,
     checked_at: new Date().toISOString()
   });
@@ -351,6 +355,12 @@ function writeJsonBestEffort(filePath, value) {
 
 function printJson(data) {
   process.stdout.write(`${JSON.stringify(data, null, 2)}\n`);
+}
+
+function validateApiData(data, endpoint) {
+  if (data?.error) {
+    throw new Error(`API error from ${endpoint}: ${data.error}`);
+  }
 }
 
 function warn(message) {
