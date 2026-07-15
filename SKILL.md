@@ -1,4 +1,4 @@
----
+﻿---
 name: 古典射学社群问答skill
 description: 当用户询问古典射学、祁弦月、古典射学联盟、章程规则、活动安排、安全规范、器材选择、远射记录会、箭重/FOC/弓形、社群争议、对外文案，或说“查知识库/按资料回答/给依据/不要编来源/像智能体知识库一样回答”时使用。此 skill 用远程知识库 API 检索证据，再由当前模型自然回答；普通问答不要机械堆引用，规则、争议、对外发布和正式判断必须保留可复核引用。
 ---
@@ -197,12 +197,12 @@ node scripts/smoke-test.mjs
 
 Every `scripts/query-kb.mjs` run performs two advisory checks before querying:
 
-- Skill code update: fetches `skill-version.json` from the public GitHub repository and compares it with the local `skill-version.json`.
+- Skill code update: fetches `skill-version.json` from the default Tencent CloudBase update endpoint and compares it with the local `skill-version.json`. GitHub remains the repository field for manual download.
 - Remote KB update: fetches the default KB API `/health` endpoint and compares the current `build` value with the cached previous value.
 
 These checks write notices to stderr only. They must not change the answer JSON, must not block normal retrieval, and must not be treated as knowledge-base evidence. Use `--no-update-check` or `GUDIAN_SHEXUE_SKIP_UPDATE_CHECK=1` when a silent deterministic run is needed.
 
-Auto-update is opt-in. Use `--auto-update` or `GUDIAN_SHEXUE_AUTO_UPDATE=1` when the local skill should update itself from the public GitHub repository before querying. Auto-update only replaces local skill files; it never writes to Cloudflare, never changes the knowledge base, and never deploys the Worker. Use `--no-auto-update` or `GUDIAN_SHEXUE_AUTO_UPDATE=0` to force notification-only behavior.
+Auto-update is opt-in. Use `--auto-update` or `GUDIAN_SHEXUE_AUTO_UPDATE=1` when the local skill should update itself from the public GitHub repository before querying. Auto-update only replaces local skill files; it never writes to CloudBase/Cloudflare, never changes the knowledge base, and never deploys the API. Use `--no-auto-update` or `GUDIAN_SHEXUE_AUTO_UPDATE=0` to force notification-only behavior.
 
 ## Route Search
 
@@ -223,3 +223,4 @@ Returned fields:
 - `guidance`: how the agent should combine the grouped evidence.
 
 Do not use one category to fake evidence for another category. If `route-search` says `器材` or `数据` is missing, say that the current knowledge base lacks that category of evidence.
+

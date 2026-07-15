@@ -15,7 +15,7 @@ import { fileURLToPath } from "node:url";
 
 const DEFAULT_API_URL = "https://gudian-shexue-kb-d7efar4fd2fcd64.service.tcloudbase.com/api";
 const DEFAULT_FALLBACK_API_URL = "https://gudian-shexue-kb-api.crescent-kb.workers.dev";
-const DEFAULT_VERSION_URL = "https://raw.githubusercontent.com/angelicaglen/gudian-shexue-community-qa-skill/main/skill-version.json";
+const DEFAULT_VERSION_URL = "https://gudian-shexue-kb-d7efar4fd2fcd64.service.tcloudbase.com/api/skill-version.json";
 const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
 const SKILL_DIR = path.resolve(SCRIPT_DIR, "..");
 const LOCAL_VERSION_PATH = path.join(SKILL_DIR, "skill-version.json");
@@ -179,16 +179,16 @@ async function checkKbHealth(apiUrl) {
   if (previous?.build && health.build && previous.build !== health.build) {
     warn([
       `[update] Remote KB changed: ${previous.build} -> ${health.build}.`,
-      `Current KB: documents=${health.documents}, paragraphs=${health.paragraphs}, answer_units=${health.answer_units ?? 0}.`
+      `Current KB: documents=${health.documents}, chunks=${health.chunks ?? health.paragraphs}, answer_units=${health.answer_units ?? 0}.`
     ].join("\n"));
   } else if (!previous?.build && health.build) {
-    warn(`[kb] Remote KB snapshot recorded: build=${health.build}, documents=${health.documents}, paragraphs=${health.paragraphs}, answer_units=${health.answer_units ?? 0}.`);
+    warn(`[kb] Remote KB snapshot recorded: build=${health.build}, documents=${health.documents}, chunks=${health.chunks ?? health.paragraphs}, answer_units=${health.answer_units ?? 0}.`);
   }
 
   writeJsonBestEffort(KB_HEALTH_CACHE_PATH, {
     build: health.build,
     documents: health.documents,
-    paragraphs: health.paragraphs,
+    paragraphs: health.paragraphs,`r`n    chunks: health.chunks,
     answer_units: health.answer_units,
     checked_at: new Date().toISOString()
   });

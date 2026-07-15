@@ -1,4 +1,4 @@
-# 古典射学社群问答 skill
+﻿# 古典射学社群问答 skill
 
 这个 skill 的目标不是把 API 查询结果原样展示给用户，而是复刻“智能体知识库”的回答体验：
 
@@ -82,10 +82,16 @@ node scripts/smoke-test.mjs
 
 `scripts/query-kb.mjs` checks for updates on every run:
 
-- GitHub skill version: compares local `skill-version.json` with the repository version.
+- Skill version: compares local `skill-version.json` with the Tencent CloudBase version endpoint. GitHub remains the manual repository.
 - KB build: compares the default API `/health` `build` value with the cached previous value.
 
-Notices are printed to stderr so JSON output remains parseable. Disable with:
+Notices are printed to stderr so JSON output remains parseable. Domestic default update endpoint:
+
+`	ext
+https://gudian-shexue-kb-d7efar4fd2fcd64.service.tcloudbase.com/api/skill-version.json
+` 
+
+Disable with:
 
 ```powershell
 node scripts/query-kb.mjs --rag --query "古典射学是什么" --no-update-check
@@ -120,3 +126,4 @@ node scripts/query-kb.mjs --route --query "现在选弓应该按什么标准" --
 - `missing_categories`：应该查但当前没材料的库。
 
 如果某个库缺材料，不要用别的库硬凑结论。
+
