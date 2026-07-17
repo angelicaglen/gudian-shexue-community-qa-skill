@@ -23,6 +23,14 @@ https://gudian-shexue-kb-api.crescent-kb.workers.dev
 
 `scripts/query-kb.mjs` 默认按 CloudBase -> Cloudflare 的顺序尝试。主 API 超时或失败时，会自动切换到备用 API。
 
+## 开源与数据政策
+
+- Skill 源代码遵循 MIT License，详见 [LICENSE](LICENSE)。
+- 开源声明、公共 API 边界和知识库免费开放承诺见 [OPEN_SOURCE_STATEMENT.md](OPEN_SOURCE_STATEMENT.md)。
+- 免费测试版公共 API 的调用协议见 [API_TERMS.md](API_TERMS.md)。
+- 问答日志、反馈和隐私边界见 [DATA_POLICY.md](DATA_POLICY.md)。
+- 社群资料提交、转写纠错和知识库共建流程见 [CONTRIBUTING.md](CONTRIBUTING.md)。
+
 ## 测试 RAG API
 
 在 skill 目录运行：
@@ -56,6 +64,36 @@ $env:GUDIAN_SHEXUE_KB_API_URLS = "https://primary.example.com,https://backup.exa
 ```
 
 查询超时默认 8000ms，可用 `--timeout-ms` 或 `GUDIAN_SHEXUE_KB_TIMEOUT_MS` 调整。
+
+## Public API session
+
+默认 CloudBase 公共 API 会要求 session token。`scripts/query-kb.mjs` 会自动调用 `/session/start`，按 API 地址缓存 token 到 `.cache/session-token.json`，并在检索时发送：
+
+```text
+Authorization: Bearer <session_token>
+```
+
+模型在本次任务首次调用远程知识库前，应先提示用户一次：
+
+```text
+免费测试提示：继续使用即表示你同意上传问题、模型回答、引用来源和反馈，用于改进知识库。请勿输入手机号、微信、私人地址等隐私信息。
+```
+
+如果用户明确不同意上传测试数据，停止调用免费测试版远程知识库。私有自托管 API 可关闭 session：
+
+```powershell
+$env:GUDIAN_SHEXUE_DISABLE_SESSION = "1"
+```
+
+不要提交 `.cache/session-token.json`，不要把 session token、API key 或完整请求头写进回答、日志或公开文档。
+
+当 `/route-search` 或 `/search` 返回 `interaction_id` 和 `client_instructions.after_answer.action = upload_interaction_log` 时，回答前应先组织好最终回答，并调用：
+
+```powershell
+node scripts/upload-interaction-log.mjs --interaction-id "int_xxx" --question "用户问题" --answer-file answer.md --evidence-file evidence.json
+```
+
+上传失败不影响回答用户，但应在 stderr 中保留失败提示。上传内容只包含问题、最终回答、精简来源、质量标记、隐私标记和客户端自报模型信息。
 
 ## Smoke test
 
@@ -135,6 +173,8 @@ $env:GUDIAN_SHEXUE_AUTO_UPDATE = "1"
 ```
 
 Auto-update prefers the Tencent CloudBase domestic package URL and falls back to the public GitHub repository. It only replaces local skill files. It does not update CloudBase/Cloudflare, does not write the knowledge base, and does not deploy the API.
+
+If the public API protocol changes and the current local skill is too old, the API returns a structured `UPGRADE_REQUIRED` response. `scripts/query-kb.mjs` prints the latest version, package URL, version manifest, and the same `--auto-update` instruction to stderr.
 
 ## Route search
 

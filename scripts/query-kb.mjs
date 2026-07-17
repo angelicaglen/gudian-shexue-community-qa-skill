@@ -23,6 +23,9 @@ const SKILL_DIR = path.resolve(SCRIPT_DIR, "..");
 const LOCAL_VERSION_PATH = path.join(SKILL_DIR, "skill-version.json");
 const CACHE_DIR = path.join(SKILL_DIR, ".cache");
 const KB_HEALTH_CACHE_PATH = path.join(CACHE_DIR, "kb-health.json");
+const SESSION_CACHE_PATH = path.join(CACHE_DIR, "session-token.json");
+const SESSION_CLIENT_ID = "gudian-shexue-community-qa-skill";
+const SESSION_NOTICE_VERSION = "2026-07-16-interaction-log-v1";
 
 const args = parseArgs(process.argv.slice(2));
 const query = args.query || args.q;
@@ -65,21 +68,24 @@ for (const apiUrl of apiUrls) {
   const endpoint = `${apiUrl}/${endpointName}`;
   try {
     await checkForUpdates(apiUrl, args);
-    const data = await queryWithFetch(endpoint, body, timeoutMs);
+    const sessionToken = await getSessionToken(apiUrl, args, timeoutMs);
+    const data = await queryWithFetchWithSessionRetry(apiUrl, endpoint, body, timeoutMs, args, sessionToken);
     validateApiData(data, endpoint);
     printJson(data);
     success = true;
     break;
   } catch (fetchError) {
     try {
-      const data = queryWithCurl(endpoint, body, false, timeoutMs);
+      const sessionToken = await getSessionToken(apiUrl, args, timeoutMs);
+      const data = queryWithCurl(endpoint, body, false, timeoutMs, sessionToken);
       validateApiData(data, endpoint);
       printJson(data);
       success = true;
       break;
     } catch (curlError) {
       try {
-        const data = queryWithCurl(endpoint, body, true, timeoutMs);
+        const sessionToken = await getSessionToken(apiUrl, args, timeoutMs);
+        const data = queryWithCurl(endpoint, body, true, timeoutMs, sessionToken);
         validateApiData(data, endpoint);
         printJson(data);
         success = true;
@@ -305,6 +311,121 @@ async function fetchJsonWithTimeout(url, timeoutMs) {
   }
 }
 
+async function getSessionToken(apiUrl, args, timeoutMs) {
+  if (sessionDisabled(args)) return "";
+
+  const explicit = args.sessionToken || args["session-token"] || process.env.GUDIAN_SHEXUE_SESSION_TOKEN;
+  if (explicit) return explicit;
+
+  const cachePath = args.sessionCachePath
+    || args["session-cache-path"]
+    || process.env.GUDIAN_SHEXUE_SESSION_CACHE_PATH
+    || SESSION_CACHE_PATH;
+  const skillVersion = readLocalVersion()?.version || "unknown";
+
+  if (process.env.GUDIAN_SHEXUE_DISABLE_SESSION_CACHE !== "1") {
+    const cached = readCachedSession(cachePath, apiUrl, skillVersion);
+    if (cached) return cached.session_token;
+  }
+
+  const session = await createSession(apiUrl, skillVersion, timeoutMs);
+  if (process.env.GUDIAN_SHEXUE_DISABLE_SESSION_CACHE !== "1") {
+    writeCachedSession(cachePath, apiUrl, skillVersion, session);
+  }
+  return session.session_token;
+}
+
+function sessionDisabled(args) {
+  return args["no-session"] === "true"
+    || process.env.GUDIAN_SHEXUE_DISABLE_SESSION === "1"
+    || process.env.GUDIAN_SHEXUE_REQUIRE_AUDIT_CONSENT === "0";
+}
+
+async function createSession(apiUrl, skillVersion, timeoutMs) {
+  const body = {
+    audit_consent: process.env.GUDIAN_SHEXUE_AUDIT_CONSENT === "0" ? false : true,
+    notice_version: SESSION_NOTICE_VERSION,
+    consent_method: "continued_use_after_notice",
+    client_id: SESSION_CLIENT_ID,
+    skill_version: skillVersion
+  };
+  const endpoint = `${apiUrl}/session/start`;
+
+  try {
+    const response = await fetch(endpoint, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json; charset=utf-8"
+      },
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(Math.max(1000, timeoutMs))
+    });
+    const text = await response.text();
+    if (!response.ok) throw apiResponseError(endpoint, response.status, text);
+    const data = JSON.parse(text);
+    if (!data?.session_token) throw new Error(`Session response missing session_token from ${endpoint}.`);
+    return data;
+  } catch (error) {
+    if (isSessionEndpointMissing(error)) return { session_token: "", expires_at: "" };
+    throw error;
+  }
+}
+
+function isSessionEndpointMissing(error) {
+  const message = formatError(error);
+  return /HTTP 404|Not found/i.test(message);
+}
+
+function readCachedSession(cachePath, apiUrl, skillVersion) {
+  const cache = readJsonIfExists(cachePath);
+  const item = cache?.[apiUrl];
+  if (!item?.session_token) return null;
+  if (item.skill_version !== skillVersion) return null;
+  if (item.notice_version !== SESSION_NOTICE_VERSION) return null;
+  if (item.expires_at && Date.parse(item.expires_at) <= Date.now() + 60_000) return null;
+  return item;
+}
+
+function writeCachedSession(cachePath, apiUrl, skillVersion, session) {
+  if (!session?.session_token) return;
+  const cache = readJsonIfExists(cachePath) || {};
+  cache[apiUrl] = {
+    session_token: session.session_token,
+    session_id: session.session_id || "",
+    expires_at: session.expires_at || "",
+    notice_version: SESSION_NOTICE_VERSION,
+    skill_version: skillVersion,
+    updated_at: new Date().toISOString()
+  };
+  writeJsonBestEffort(cachePath, cache);
+}
+
+function clearCachedSession(apiUrl, args) {
+  const cachePath = args.sessionCachePath
+    || args["session-cache-path"]
+    || process.env.GUDIAN_SHEXUE_SESSION_CACHE_PATH
+    || SESSION_CACHE_PATH;
+  const cache = readJsonIfExists(cachePath) || {};
+  if (!cache[apiUrl]) return;
+  delete cache[apiUrl];
+  writeJsonBestEffort(cachePath, cache);
+}
+
+async function queryWithFetchWithSessionRetry(apiUrl, endpoint, body, timeoutMs, args, sessionToken) {
+  try {
+    return await queryWithFetch(endpoint, body, timeoutMs, sessionToken);
+  } catch (error) {
+    if (!isInvalidSessionError(error)) throw error;
+    clearCachedSession(apiUrl, args);
+    const refreshed = await getSessionToken(apiUrl, args, timeoutMs);
+    return queryWithFetch(endpoint, body, timeoutMs, refreshed);
+  }
+}
+
+function isInvalidSessionError(error) {
+  return /SESSION_TOKEN_EXPIRED|SESSION_TOKEN_INVALID/i.test(formatError(error));
+}
+
 function queryJsonWithCurlGet(url, noProxy, timeoutMs) {
   const curl = process.platform === "win32" ? "curl.exe" : "curl";
   const curlArgs = [
@@ -323,11 +444,12 @@ function queryJsonWithCurlGet(url, noProxy, timeoutMs) {
   return JSON.parse(output);
 }
 
-async function queryWithFetch(endpoint, body, timeoutMs) {
+async function queryWithFetch(endpoint, body, timeoutMs, sessionToken = "") {
   const response = await fetch(endpoint, {
     method: "POST",
     headers: {
-      "content-type": "application/json; charset=utf-8"
+      "content-type": "application/json; charset=utf-8",
+      ...(sessionToken ? { authorization: `Bearer ${sessionToken}` } : {})
     },
     body: JSON.stringify(body),
     signal: AbortSignal.timeout(Math.max(1000, timeoutMs))
@@ -335,13 +457,13 @@ async function queryWithFetch(endpoint, body, timeoutMs) {
 
   const text = await response.text();
   if (!response.ok) {
-    throw new Error(`HTTP ${response.status}: ${text.slice(0, 500)}`);
+    throw apiResponseError(endpoint, response.status, text);
   }
 
   return JSON.parse(text);
 }
 
-function queryWithCurl(endpoint, body, noProxy, timeoutMs) {
+function queryWithCurl(endpoint, body, noProxy, timeoutMs, sessionToken = "") {
   const dir = mkdtempSync(path.join(tmpdir(), "gudian-shexue-kb-"));
   const bodyPath = path.join(dir, "body.json");
 
@@ -356,6 +478,10 @@ function queryWithCurl(endpoint, body, noProxy, timeoutMs) {
       "-H", "Content-Type: application/json; charset=utf-8",
       "--data-binary", `@${bodyPath}`
     ];
+
+    if (sessionToken) {
+      curlArgs.push("-H", `Authorization: Bearer ${sessionToken}`);
+    }
 
     if (noProxy) curlArgs.unshift("--noproxy", "*");
 
@@ -457,9 +583,46 @@ function printJson(data) {
 }
 
 function validateApiData(data, endpoint) {
+  const updateMessage = formatUpdateInstruction(data);
+  if (updateMessage) {
+    throw new Error(`API update required from ${endpoint}:\n${updateMessage}`);
+  }
   if (data?.error) {
     throw new Error(`API error from ${endpoint}: ${data.error}`);
   }
+}
+
+function apiResponseError(endpoint, status, text) {
+  const parsed = parseJsonText(text);
+  const updateMessage = formatUpdateInstruction(parsed);
+  if (updateMessage) {
+    return new Error(`HTTP ${status} from ${endpoint}:\n${updateMessage}`);
+  }
+  const message = parsed?.message || parsed?.error || text.slice(0, 500);
+  return new Error(`HTTP ${status} from ${endpoint}: ${message}`);
+}
+
+function parseJsonText(text) {
+  try {
+    return JSON.parse(String(text || "").replace(/^\uFEFF/, ""));
+  } catch {
+    return null;
+  }
+}
+
+function formatUpdateInstruction(data) {
+  const instruction = data?.update_instruction || (data?.error === "UPGRADE_REQUIRED" ? data : null);
+  if (!instruction) return "";
+  const lines = [
+    `[update] ${instruction.message || "Skill update required."}`,
+    instruction.latest_version ? `[update] Latest version: ${instruction.latest_version}` : "",
+    instruction.package_url ? `[update] Package: ${instruction.package_url}` : "",
+    instruction.version_url ? `[update] Version manifest: ${instruction.version_url}` : "",
+    instruction.repository ? `[update] Repository: ${instruction.repository}` : "",
+    instruction.release_notes ? `[update] Notes: ${instruction.release_notes}` : "",
+    "[update] To auto-update, run with --auto-update or set GUDIAN_SHEXUE_AUTO_UPDATE=1."
+  ].filter(Boolean);
+  return lines.join("\n");
 }
 
 function warn(message) {
